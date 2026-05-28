@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ✅ Users can only read/write their OWN data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // ✅ Validate data being written
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'name', 'email', 'createdAt', 'lastReading',
+          'bookmarks', 'dailyGoal', 'streak', 'lastReadDate',
+          'totalAyaatRead', 'todayAyaatRead', 'fontSize',
+          'translation', 'reciter', 'autoPlay', 'autoScroll',
+          'dailyReminder', 'prayerAlerts', 'goalReminder'
+        ])
+        // ✅ Name must be a string under 50 chars
+        && (!('name' in request.resource.data) || request.resource.data.name is string && request.resource.data.name.size() <= 50)
+        // ✅ Bookmarks must be an array under 500 items
+        && (!('bookmarks' in request.resource.data) || request.resource.data.bookmarks is list && request.resource.data.bookmarks.size() <= 500);
+    }
+
+    // ❌ No other collections accessible
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
